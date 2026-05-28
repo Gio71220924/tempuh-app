@@ -143,29 +143,6 @@ export default function App() {
         }}
       />
 
-      {/* Brand — top left */}
-      <div style={{
-        position: 'absolute', top: 18, left: 18, zIndex: 20,
-        display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none',
-      }}>
-        <svg width="28" height="28" viewBox="0 0 32 32" style={{ display: 'block' }}>
-          <circle cx="16" cy="16" r="14" fill="none" stroke="var(--r1)" strokeWidth="1.2" strokeDasharray="2.5 2" opacity="0.85" />
-          <g transform="translate(16, 17.5) rotate(-8)">
-            <path d="M -9 -7 L 9 -7 L 7 -4.5 L -7 -4.5 Z" fill="var(--ink)" />
-            <path d="M -2 -7 L 2 -7 L 1.5 8 L -1.5 8 Z" fill="var(--ink)" />
-            <circle cx="0" cy="-7.5" r="1.6" fill="var(--r1)" />
-          </g>
-        </svg>
-        <div style={{ lineHeight: 1 }}>
-          <div style={{ fontFamily: 'var(--font-hand)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
-            tempuh
-          </div>
-          <div style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--ink-faint)', letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 2, fontWeight: 500 }}>
-            flight range · v0.1
-          </div>
-        </div>
-      </div>
-
       {/* Top bar */}
       <TopBar
         origin={origin}

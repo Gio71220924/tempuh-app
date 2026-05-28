@@ -19,6 +19,25 @@ function ParamSlider({ label, value, min, max, step, unit, rightLabel, onChange 
   );
 }
 
+function BrandLockup() {
+  return (
+    <div className="brand-lockup">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="var(--r1)" strokeWidth="1.2" strokeDasharray="2.5 2" opacity="0.85" />
+        <g transform="translate(16, 17.5) rotate(-8)">
+          <path d="M -9 -7 L 9 -7 L 7 -4.5 L -7 -4.5 Z" fill="var(--ink)" />
+          <path d="M -2 -7 L 2 -7 L 1.5 8 L -1.5 8 Z" fill="var(--ink)" />
+          <circle cx="0" cy="-7.5" r="1.6" fill="var(--r1)" />
+        </g>
+      </svg>
+      <div>
+        <div className="brand-title">tempuh</div>
+        <div className="brand-subtitle">flight range &middot; v0.1</div>
+      </div>
+    </div>
+  );
+}
+
 function AircraftCard({ a, fleetEntry, focused, onFocus, onEdit, onRemove, onUpdateParam, legNm }) {
   const isEditing = onEdit.isEditing;
   const inRange = a.range >= legNm;
@@ -115,6 +134,7 @@ export default function LeftDock({
     <div className="dock-left">
       {/* Route planner card */}
       <div className="card">
+        <BrandLockup />
         <div className="card-title">✈ Plan a route</div>
         <p className="card-sub">Search or click a pill above</p>
 

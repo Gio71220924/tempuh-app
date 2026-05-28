@@ -35,6 +35,35 @@
   opacity: 0.5;
 }
 
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--stroke-dim);
+}
+.brand-lockup svg {
+  display: block;
+  flex: 0 0 auto;
+}
+.brand-title {
+  font-family: var(--font-hand);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+.brand-subtitle {
+  margin-top: 2px;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  line-height: 1.2;
+}
+
 /* ── Field label ────────────────────────────────────────────────── */
 .field-label {
   display: block;
@@ -298,7 +327,7 @@ input[type=range] {
   right: 16px;
   z-index: 10;
   width: 340px;
-  max-width: calc(100vw - 340px);
+  max-width: calc(100vw - 32px);
 }
 
 /* ── Command palette overlay ─────────────────────────────────────── */
