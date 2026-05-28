@@ -115,6 +115,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     // ── Range rings (only visible at zoom ≥ 4) ──────────────────
     if (showRanges) {
       aircraft.forEach(a => {
+        if (!a.range || a.range <= 0) return;
         const color     = COLOR_HEX[a.tone] || '#fff';
         const isFocused = focused === a.tone;
         const ring = L.circle(from, {
