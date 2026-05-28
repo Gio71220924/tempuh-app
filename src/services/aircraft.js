@@ -1,5 +1,5 @@
 const JSON_URL  = '/aircraft.json';
-const LS_KEY    = 'tempuh_aircraft_v1';
+const LS_KEY    = 'tempuh_aircraft_v2'; // bumped: added oew + maxFuel fields
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days — specs rarely change
 
 let _cache = null;

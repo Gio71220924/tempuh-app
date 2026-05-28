@@ -24,6 +24,7 @@ export function gcDistanceNm(a, b) {
 export function computeAircraft(fleetEntry, legNm, catalog) {
   const cat = catalog.find(c => c.id === fleetEntry.catId);
   if (!cat) return null;
+  if (!cat.oew || !cat.maxFuel) return null;
   const paxTonnes = (fleetEntry.params.pax * 100) / 1000;
   const totalPayload = fleetEntry.params.payload + paxTonnes;
   const fuelAvail = Math.min(cat.maxFuel, cat.mtow - cat.oew - totalPayload);
