@@ -231,6 +231,11 @@ function fitRouteToView(map, from, to) {
 function geodesicPoints(from, to, steps = 80) {
   const pts = [];
   for (let i = 0; i <= steps; i++) pts.push(interpGeodesic(from, to, i / steps));
+  // Unwrap longitudes so antimeridian-crossing routes don't draw across the whole map
+  for (let i = 1; i < pts.length; i++) {
+    while (pts[i][1] - pts[i-1][1] >  180) pts[i][1] -= 360;
+    while (pts[i][1] - pts[i-1][1] < -180) pts[i][1] += 360;
+  }
   return pts;
 }
 
