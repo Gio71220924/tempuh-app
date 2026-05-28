@@ -112,29 +112,24 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       markerData.push({ marker, offset: initT });
     });
 
-    // ── Range rings (only visible at zoom ≥ 4) ──────────────────
+    // ── Range rings (geodesic polyline, stable on pan/zoom) ──────
     if (showRanges) {
       aircraft.forEach(a => {
         if (!a.range || a.range <= 0) return;
         const color     = COLOR_HEX[a.tone] || '#fff';
         const isFocused = focused === a.tone;
-        const ring = L.circle(from, {
-          radius:      a.range * NM_TO_M,
+        const ring = L.polyline(geodesicCirclePoints(from, a.range), {
           color,
-          weight:      isFocused ? 2.4 : 1.4,
-          opacity:     isFocused ? 0.9 : 0.62,
-          fillOpacity: isFocused ? 0.035 : 0,
-          dashArray:   '8 10',
+          weight:      isFocused ? 2 : 1.2,
+          opacity:     isFocused ? 0.85 : 0.5,
+          dashArray:   '6 8',
           interactive: false,
+          fill:        false,
         }).addTo(map);
         layers.rings.push(ring);
 
-        // Hide rings when zoomed out too far
         const hideRings = () => {
-          ring.setStyle({
-            opacity: map.getZoom() >= 3 ? (isFocused ? 0.9 : 0.62) : 0,
-            fillOpacity: map.getZoom() >= 3 && isFocused ? 0.035 : 0,
-          });
+          ring.setStyle({ opacity: map.getZoom() >= 3 ? (isFocused ? 0.85 : 0.5) : 0 });
         };
         map.on('zoomend', hideRings);
         zoomHandlers.push(hideRings);
@@ -237,6 +232,38 @@ function geodesicPoints(from, to, steps = 80) {
     while (pts[i][1] - pts[i-1][1] < -180) pts[i][1] += 360;
   }
   return pts;
+}
+
+function geodesicCirclePoints([lat, lng], radiusNm, steps = 90) {
+  const d    = radiusNm / 3440.065;
+  const latR = lat * Math.PI / 180;
+  const lngR = lng * Math.PI / 180;
+  const raw  = [];
+  for (let i = 0; i <= steps; i++) {
+    const brg    = (2 * Math.PI * i) / steps;
+    const sinPhi = Math.max(-1, Math.min(1,
+      Math.sin(latR) * Math.cos(d) + Math.cos(latR) * Math.sin(d) * Math.cos(brg)
+    ));
+    const φ = Math.asin(sinPhi);
+    const λ = lngR + Math.atan2(
+      Math.sin(brg) * Math.sin(d) * Math.cos(latR),
+      Math.cos(d) - Math.sin(latR) * Math.sin(φ)
+    );
+    raw.push([φ * 180 / Math.PI, λ * 180 / Math.PI]);
+  }
+  // Split into segments at longitude discontinuities (antimeridian / polar crossing)
+  // rather than unwrapping, which breaks for rings that cross the poles
+  const segments = [];
+  let seg = [raw[0]];
+  for (let i = 1; i < raw.length; i++) {
+    if (Math.abs(raw[i][1] - raw[i-1][1]) > 90) {
+      if (seg.length > 1) segments.push(seg);
+      seg = [];
+    }
+    seg.push(raw[i]);
+  }
+  if (seg.length > 1) segments.push(seg);
+  return segments.length > 1 ? segments : segments[0] || [];
 }
 
 function interpGeodesic([lat1, lng1], [lat2, lng2], t) {
