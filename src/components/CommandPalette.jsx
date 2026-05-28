@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { searchAirports } from '../services/airports.js';
-import { searchAircraft } from '../data/catalog.js';
+import { searchAircraft } from '../services/aircraft.js';
 
 export default function CommandPalette({
   mode,          // 'from' | 'to' | 'aircraft'
   query,
   setQuery,
   airports,
+  catalog,
   fleet,
   onClose,
   onPickAirport,
@@ -35,7 +36,7 @@ export default function CommandPalette({
 
   const usedIds = new Set(fleet.map(f => f.catId));
   const results = isAircraft
-    ? searchAircraft(query)
+    ? searchAircraft(catalog, query)
     : searchAirports(airports, query);
 
   const handleSelect = (item) => {

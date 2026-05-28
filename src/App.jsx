@@ -6,7 +6,8 @@ import CommandPalette from './components/CommandPalette.jsx';
 import ComparisonCard from './components/ComparisonCard.jsx';
 import PrintBrief from './components/PrintBrief.jsx';
 import { loadAirports } from './services/airports.js';
-import { CATALOG, ROUTE_COLORS, computeAircraft, gcDistanceNm } from './data/catalog.js';
+import { loadAircraft } from './services/aircraft.js';
+import { ROUTE_COLORS, computeAircraft, gcDistanceNm } from './data/catalog.js';
 import './components/map.css';
 import './components/ui.css';
 
@@ -22,24 +23,25 @@ const DEFAULT_FLEET = [
 ];
 
 export default function App() {
-  const [airports, setAirports]   = useState([]);
-  const [loading,  setLoading]    = useState(true);
-  const [loadErr,  setLoadErr]    = useState(null);
+  const [airports,  setAirports]  = useState([]);
+  const [catalog,   setCatalog]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [loadErr,   setLoadErr]   = useState(null);
 
-  const [origin,   setOrigin]     = useState(DEFAULT_ORIGIN);
-  const [dest,     setDest]       = useState(DEFAULT_DEST);
-  const [fleet,    setFleet]      = useState(DEFAULT_FLEET);
-  const [focused,  setFocused]    = useState(null);
+  const [origin,    setOrigin]    = useState(DEFAULT_ORIGIN);
+  const [dest,      setDest]      = useState(DEFAULT_DEST);
+  const [fleet,     setFleet]     = useState(DEFAULT_FLEET);
+  const [focused,   setFocused]   = useState(null);
   const [showRanges, setShowRanges] = useState(true);
 
-  const [palette,  setPalette]    = useState(null); // null | 'from' | 'to' | 'aircraft'
-  const [palQuery, setPalQuery]   = useState('');
+  const [palette,   setPalette]   = useState(null); // null | 'from' | 'to' | 'aircraft'
+  const [palQuery,  setPalQuery]  = useState('');
 
-  // ── Load OurAirports data ──────────────────────────────────────
+  // ── Load airports + aircraft catalog in parallel ───────────────
   useEffect(() => {
-    loadAirports()
-      .then(data => { setAirports(data); setLoading(false); })
-      .catch(err  => { setLoadErr(err.message); setLoading(false); });
+    Promise.all([loadAirports(), loadAircraft()])
+      .then(([ap, ac]) => { setAirports(ap); setCatalog(ac); setLoading(false); })
+      .catch(err => { setLoadErr(err.message); setLoading(false); });
   }, []);
 
   // ── ⌘K keyboard shortcut ──────────────────────────────────────
@@ -56,8 +58,8 @@ export default function App() {
   }, []);
 
   // ── Derived values ─────────────────────────────────────────────
-  const legNm = gcDistanceNm(origin, dest);
-  const aircraft = fleet.map(f => computeAircraft(f, legNm)).filter(Boolean);
+  const legNm   = gcDistanceNm(origin, dest);
+  const aircraft = fleet.map(f => computeAircraft(f, legNm, catalog)).filter(Boolean);
 
   // ── Handlers ───────────────────────────────────────────────────
   const openPalette = useCallback((mode) => {
@@ -113,7 +115,7 @@ export default function App() {
           </g>
         </svg>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-dim)' }}>
-          Loading airport database…
+          Loading airport &amp; aircraft database…
         </div>
       </div>
     );
@@ -122,7 +124,7 @@ export default function App() {
   if (loadErr) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 12 }}>
-        <div style={{ color: '#f78ca0', fontFamily: 'var(--font-mono)', fontSize: 13 }}>Failed to load airports: {loadErr}</div>
+        <div style={{ color: '#f78ca0', fontFamily: 'var(--font-mono)', fontSize: 13 }}>Failed to load: {loadErr}</div>
         <button className="btn" onClick={() => window.location.reload()}>retry</button>
       </div>
     );
@@ -142,6 +144,29 @@ export default function App() {
           openPalette(airport.icao === origin.icao ? 'from' : 'to');
         }}
       />
+
+      {/* Brand — top left */}
+      <div style={{
+        position: 'absolute', top: 18, left: 18, zIndex: 20,
+        display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none',
+      }}>
+        <svg width="28" height="28" viewBox="0 0 32 32" style={{ display: 'block' }}>
+          <circle cx="16" cy="16" r="14" fill="none" stroke="var(--r1)" strokeWidth="1.2" strokeDasharray="2.5 2" opacity="0.85" />
+          <g transform="translate(16, 17.5) rotate(-8)">
+            <path d="M -9 -7 L 9 -7 L 7 -4.5 L -7 -4.5 Z" fill="var(--ink)" />
+            <path d="M -2 -7 L 2 -7 L 1.5 8 L -1.5 8 Z" fill="var(--ink)" />
+            <circle cx="0" cy="-7.5" r="1.6" fill="var(--r1)" />
+          </g>
+        </svg>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--font-hand)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+            tempuh
+          </div>
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--ink-faint)', letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 2, fontWeight: 500 }}>
+            flight range · v0.1
+          </div>
+        </div>
+      </div>
 
       {/* Top bar */}
       <TopBar
@@ -198,6 +223,7 @@ export default function App() {
           query={palQuery}
           setQuery={setPalQuery}
           airports={airports}
+          catalog={catalog}
           fleet={fleet}
           onClose={closePalette}
           onPickAirport={pickAirport}
