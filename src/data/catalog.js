@@ -25,8 +25,9 @@ export function computeAircraft(fleetEntry, legNm, catalog) {
   const cat = catalog.find(c => c.id === fleetEntry.catId);
   if (!cat) return null;
   const paxTonnes = (fleetEntry.params.pax * 100) / 1000;
-  const ratio = Math.min(1, (fleetEntry.params.payload + paxTonnes) / cat.maxPayload);
-  const range = Math.round(cat.maxRange * (1 - 0.30 * ratio));
+  const totalPayload = fleetEntry.params.payload + paxTonnes;
+  const fuelAvail = Math.min(cat.maxFuel, cat.mtow - cat.oew - totalPayload);
+  const range = Math.max(0, Math.round((fuelAvail / cat.fuelBurn) * cat.cruise));
   const hours = legNm / cat.cruise;
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -51,6 +52,20 @@ export function computeAircraft(fleetEntry, legNm, catalog) {
     range,
     maxRange: cat.maxRange,
   };
+}
+
+/**
+ * Returns key points of the 3-segment payload-range curve for a given aircraft.
+ * Used to draw the mini SVG chart in the aircraft card.
+ */
+export function payloadRangeCurve(cat) {
+  // Payload at which fuel tank starts limiting range (segment 1 → 2 knee)
+  const knee1Payload = Math.max(0, cat.mtow - cat.oew - cat.maxFuel);
+  const knee2Payload = cat.maxPayload;
+  const ferryRange   = Math.round((cat.maxFuel / cat.fuelBurn) * cat.cruise);
+  const fuelAtMax    = cat.mtow - cat.oew - knee2Payload;
+  const rangeAtMax   = Math.max(0, Math.round((fuelAtMax / cat.fuelBurn) * cat.cruise));
+  return { knee1Payload, knee2Payload, ferryRange, rangeAtMax };
 }
 
 /** Format nautical miles with thousands separator */
