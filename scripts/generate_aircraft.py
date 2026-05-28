@@ -14,7 +14,9 @@ def speed_of_sound(alt_m):
     return math.sqrt(1.4 * 287 * T)
 
 
-def from_openap(oap_code, our_id, short, category, subtype, name_override=None):
+def from_openap(oap_code, our_id, short, category, subtype,
+                name_override=None, payload_override=None,
+                range_override=None, pax_override=None, alt_override=None):
     ac = openap.prop.aircraft(oap_code)
     alt_m  = ac['cruise']['height']
     alt_ft = alt_m * 3.28084
@@ -26,11 +28,11 @@ def from_openap(oap_code, our_id, short, category, subtype, name_override=None):
     except Exception:
         ff = FuelFlow(oap_code, use_synonym=True)
 
-    mass       = ac['mtow'] * 0.70
-    fuel_t_hr  = round(ff.enroute(mass=mass, tas=tas_kt, alt=alt_ft) * 3.6, 2)
-    range_nm   = round(ac['cruise']['range'] / 1.852)
-    payload_t  = round((ac['mlw'] - ac['oew']) / 1000, 1)
-    fl         = f"FL{int(alt_ft / 100)}"
+    mass      = ac['mtow'] * 0.70
+    fuel_t_hr = round(ff.enroute(mass=mass, tas=tas_kt, alt=alt_ft) * 3.6, 2)
+    range_nm  = range_override or round(ac['cruise']['range'] / 1.852)
+    payload_t = payload_override or round((ac['mlw'] - ac['oew']) / 1000, 1)
+    fl        = alt_override or f"FL{int(alt_ft / 100)}"
 
     return {
         'id':         our_id,
@@ -38,7 +40,7 @@ def from_openap(oap_code, our_id, short, category, subtype, name_override=None):
         'short':      short,
         'category':   category,
         'subtype':    subtype,
-        'maxPax':     ac.get('pax', {}).get('max', 0),
+        'maxPax':     pax_override or ac.get('pax', {}).get('max', 0),
         'maxPayload': payload_t,
         'mtow':       round(ac['mtow'] / 1000, 1),
         'fuelBurn':   fuel_t_hr,
@@ -120,10 +122,14 @@ OPENAP_AIRCRAFT = [
     # Commercial — narrowbody
     ('a20n', 'a320', 'A320',   'Commercial', 'narrowbody', 'Airbus A320neo'),
     ('b738', 'b738', 'B738',   'Commercial', 'narrowbody', None),
-    ('a21n', 'a21n', 'A321XLR','Commercial', 'narrowbody', 'Airbus A321XLR'),
+    # a21n uses A320 drag polar as synonym; override range with Airbus official spec
+    ('a21n', 'a21n', 'A321XLR', 'Commercial', 'narrowbody', 'Airbus A321XLR',
+     None, 4700),
     ('b38m', 'b38m', 'B737M',  'Commercial', 'narrowbody', 'Boeing 737 MAX 8'),
     # Private
-    ('glf6', 'g650', 'G650',   'Private',    'long range', 'Gulfstream G650'),
+    # glf6: payload from mlw-oew is wrong for private jets; override with real spec
+    ('glf6', 'g650', 'G650', 'Private', 'long range', 'Gulfstream G650',
+     2.8, None, 19, 'FL410'),
 ]
 
 
@@ -135,9 +141,9 @@ def main():
         try:
             entry = from_openap(*args)
             catalog.append(entry)
-            print(f"  ✓ {entry['id']:6} {entry['name']}")
+            print(f"  OK {entry['id']:6} {entry['name']}")
         except Exception as e:
-            print(f"  ✗ {args[1]}: {e}")
+            print(f"  ERR {args[1]}: {e}")
 
     print('Adding manual entries...')
     for entry in MANUAL:
