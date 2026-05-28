@@ -43,7 +43,7 @@ def from_openap(oap_code, our_id, short, category, subtype,
         'maxPax':     pax_override or ac.get('pax', {}).get('max', 0),
         'maxPayload': payload_t,
         'oew':        round(ac['oew'] / 1000, 1),
-        'maxFuel':    round(ac['mfc'] / 1000, 1),
+        'maxFuel':    round(ac['mfc'] * 0.80 / 1000, 1),  # mfc is in liters; ×0.80 kg/L
         'mtow':       round(ac['mtow'] / 1000, 1),
         'fuelBurn':   fuel_t_hr,
         'cruise':     round(tas_kt),
@@ -123,7 +123,8 @@ OPENAP_AIRCRAFT = [
     ('b748', 'b748', 'B748',   'Commercial', 'superjumbo', 'Boeing 747-8I'),
     # Commercial — narrowbody
     ('a20n', 'a320', 'A320',   'Commercial', 'narrowbody', 'Airbus A320neo'),
-    ('b738', 'b738', 'B738',   'Commercial', 'narrowbody', None),
+    # b738: OpenAP range (1998nm) uses heavy payload assumption; Boeing spec 2935nm
+    ('b738', 'b738', 'B738', 'Commercial', 'narrowbody', None, None, 2935),
     # a21n uses A320 drag polar as synonym; override range with Airbus official spec
     ('a21n', 'a21n', 'A321XLR', 'Commercial', 'narrowbody', 'Airbus A321XLR',
      None, 4700),
