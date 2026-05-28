@@ -1,6 +1,71 @@
 import { useState } from 'react';
 import { fmtNm } from '../data/catalog.js';
 
+// SVG chart dimensions
+const CW = 220, CH = 68;
+const ML = 4, MR = 4, MT = 6, MB = 12;
+const PW = CW - ML - MR;  // plot width
+const PH = CH - MT - MB;  // plot height
+
+function PayloadRangeChart({ a, legNm }) {
+  const { curve, range, maxPayload } = a;
+  const { knee1Payload, knee2Payload, ferryRange, rangeAtMax } = curve;
+  const color = `var(--${a.tone})`;
+
+  const toX = p => ML + (Math.min(p, knee2Payload) / knee2Payload) * PW;
+  const toY = r => MT + (1 - Math.min(r, ferryRange) / ferryRange) * PH;
+
+  // 3-segment polyline points
+  const pts = [
+    [toX(0),            toY(ferryRange)],
+    [toX(knee1Payload), toY(ferryRange)],
+    [toX(knee2Payload), toY(rangeAtMax)],
+  ].map(([x, y]) => `${x},${y}`).join(' ');
+
+  // current loadout position on curve
+  const totalPayload = a.payload + (a.pax * 100) / 1000;
+  const dotX = toX(Math.min(totalPayload, knee2Payload));
+  const dotY = toY(range);
+
+  // route distance line Y
+  const routeY = legNm <= ferryRange ? toY(legNm) : null;
+
+  return (
+    <svg
+      viewBox={`0 0 ${CW} ${CH}`}
+      width="100%"
+      style={{ display: 'block', marginBottom: 6, borderRadius: 4, background: 'rgba(0,0,0,0.25)' }}
+    >
+      {/* Axes */}
+      <line x1={ML} y1={MT} x2={ML} y2={MT + PH} stroke="#263040" strokeWidth="1" />
+      <line x1={ML} y1={MT + PH} x2={ML + PW} y2={MT + PH} stroke="#263040" strokeWidth="1" />
+
+      {/* Route distance line */}
+      {routeY && (
+        <>
+          <line x1={ML} y1={routeY} x2={ML + PW} y2={routeY}
+            stroke="#6dd3e7" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+          <text x={ML + PW + 2} y={routeY + 3} fill="#6dd3e7" fontSize="7" opacity="0.8">leg</text>
+        </>
+      )}
+
+      {/* Curve */}
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" opacity="0.55" />
+
+      {/* Current loadout dot */}
+      <circle cx={dotX} cy={dotY} r="3.5" fill={color} stroke="rgba(0,0,0,0.5)" strokeWidth="1" />
+
+      {/* Axis labels */}
+      <text x={ML} y={CH - 1} fill="#445566" fontSize="7">0</text>
+      <text x={ML + PW} y={CH - 1} fill="#445566" fontSize="7" textAnchor="end">
+        {a.maxPayload}t
+      </text>
+      <text x={ML - 1} y={MT + 4} fill="#445566" fontSize="6" textAnchor="end"
+        transform={`rotate(-90,${ML - 1},${MT + PH / 2})`}>nm</text>
+    </svg>
+  );
+}
+
 function ParamSlider({ label, value, min, max, step, unit, rightLabel, onChange }) {
   return (
     <div style={{ marginBottom: 8 }}>
@@ -15,25 +80,6 @@ function ParamSlider({ label, value, min, max, step, unit, rightLabel, onChange 
         type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
       />
-    </div>
-  );
-}
-
-function BrandLockup() {
-  return (
-    <div className="brand-lockup">
-      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-        <circle cx="16" cy="16" r="14" fill="none" stroke="var(--r1)" strokeWidth="1.2" strokeDasharray="2.5 2" opacity="0.85" />
-        <g transform="translate(16, 17.5) rotate(-8)">
-          <path d="M -9 -7 L 9 -7 L 7 -4.5 L -7 -4.5 Z" fill="var(--ink)" />
-          <path d="M -2 -7 L 2 -7 L 1.5 8 L -1.5 8 Z" fill="var(--ink)" />
-          <circle cx="0" cy="-7.5" r="1.6" fill="var(--r1)" />
-        </g>
-      </svg>
-      <div>
-        <div className="brand-title">tempuh</div>
-        <div className="brand-subtitle">flight range &middot; v0.1</div>
-      </div>
     </div>
   );
 }
@@ -104,7 +150,11 @@ function AircraftCard({ a, fleetEntry, focused, onFocus, onEdit, onRemove, onUpd
             rightLabel={`max ${a.maxPayload} t`}
             onChange={v => onUpdateParam('payload', +v.toFixed(1))}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, padding: '5px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.03)' }}>
+
+          {/* Payload-range chart */}
+          <PayloadRangeChart a={a} legNm={legNm} />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, padding: '5px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.03)' }}>
             <span className="field-label" style={{ marginBottom: 0 }}>Effective range</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: inRange ? 'var(--ink)' : '#f78ca0', fontWeight: 600 }}>
               {fmtNm(a.range)} nm
@@ -134,7 +184,6 @@ export default function LeftDock({
     <div className="dock-left">
       {/* Route planner card */}
       <div className="card">
-        <BrandLockup />
         <div className="card-title">✈ Plan a route</div>
         <p className="card-sub">Search or click a pill above</p>
 

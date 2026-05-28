@@ -51,6 +51,7 @@ export function computeAircraft(fleetEntry, legNm, catalog) {
     km: Math.round(legNm * 1.852),
     range,
     maxRange: cat.maxRange,
+    curve: payloadRangeCurve(cat),
   };
 }
 
