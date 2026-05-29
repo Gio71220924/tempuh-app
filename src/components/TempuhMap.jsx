@@ -26,7 +26,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
-      worldCopyJump: true,
+      worldCopyJump: false,
     });
 
     L.tileLayer(TILE_URL, {
@@ -95,76 +95,89 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     const from = [origin.lat, origin.lng];
     const to   = [dest.lat,   dest.lng];
 
+    // Draw overlays on 3 world copies (−360/0/+360) so they stay visible and
+    // continuous when panning across the wrapped map — without worldCopyJump's
+    // jarring view-snap.
+    const COPIES = [0, -360, 360];
+
     // ── Route polylines ──────────────────────────────────────────
     const markerData = [];
     const zoomHandlers = [];
+    const basePts = geodesicPoints(from, to, 80);
 
     aircraft.forEach((a, idx) => {
       const color  = COLOR_HEX[a.tone] || '#fff';
       const dimmed = focused !== null && focused !== a.tone;
 
-      const poly = L.polyline(geodesicPoints(from, to, 80), {
-        color,
-        weight:    dimmed ? 1.2 : 2.5,
-        opacity:   dimmed ? 0.2 : 0.85,
-        dashArray: '6 5',
-        lineCap:   'round',
-      }).addTo(map);
-      layers.routes.push(poly);
+      COPIES.forEach(off => {
+        const pts = off ? basePts.map(([la, ln]) => [la, ln + off]) : basePts;
+        const poly = L.polyline(pts, {
+          color,
+          weight:    dimmed ? 1.2 : 2.5,
+          opacity:   dimmed ? 0.2 : 0.85,
+          dashArray: '6 5',
+          lineCap:   'round',
+        }).addTo(map);
+        layers.routes.push(poly);
+      });
 
-      const initT  = (idx * 0.18) % 1;
-      const marker = L.marker(interpGeodesic(from, to, initT), {
-        icon:         makePlaneIcon(color),
-        zIndexOffset: 500,
-        interactive:  false,
-        opacity:      dimmed ? 0.2 : 1,
-      }).addTo(map);
-      layers.markers.push(marker);
-      markerData.push({ marker, offset: initT });
+      const initT   = (idx * 0.18) % 1;
+      const basePt  = interpGeodesic(from, to, initT);
+      const markers = COPIES.map(off => {
+        const m = L.marker([basePt[0], basePt[1] + off], {
+          icon:         makePlaneIcon(color),
+          zIndexOffset: 500,
+          interactive:  false,
+          opacity:      dimmed ? 0.2 : 1,
+        }).addTo(map);
+        layers.markers.push(m);
+        return m;
+      });
+      markerData.push({ markers, offsetT: initT });
     });
 
-    // Range ring per aircraft. Keep this visual-only so long-range jets stay readable on a wrapped map.
+    // Range ring per aircraft, drawn on each world copy.
     if (showRanges) {
       aircraft.forEach(a => {
         if (!a.range || a.range <= 0) return;
         const color     = COLOR_HEX[a.tone] || '#fff';
         const isFocused  = focused === a.tone;
         const dimmed     = focused !== null && !isFocused;
-        const ring = L.circle(from, {
-          radius:      a.range * NM_TO_M,
-          color,
-          weight:      isFocused ? 2.4 : 1.4,
-          opacity:     dimmed ? 0.18 : (isFocused ? 0.9 : 0.62),
-          fillOpacity: 0,
-          dashArray:   '8 10',
-          interactive: false,
-        }).addTo(map);
-        layers.rings.push(ring);
-
-        // reachable=true → polygon is the in-range area (filled in tone)
-        // reachable=false → ultra-long-range; polygon is the small UNREACHABLE
-        //   pocket near the antipode, drawn faint as a "gap" marker
+        COPIES.forEach(off => {
+          const ring = L.circle([from[0], from[1] + off], {
+            radius:      a.range * NM_TO_M,
+            color,
+            weight:      isFocused ? 2.4 : 1.4,
+            opacity:     dimmed ? 0.18 : (isFocused ? 0.9 : 0.62),
+            fillOpacity: 0,
+            dashArray:   '8 10',
+            interactive: false,
+          }).addTo(map);
+          layers.rings.push(ring);
+        });
       });
     }
 
     // ── Airport pins ─────────────────────────────────────────────
     [origin, dest].forEach(airport => {
-      const pin = L.circleMarker([airport.lat, airport.lng], {
-        radius: 7, color: '#e8eef2', weight: 2.5, fillColor: '#0d1620', fillOpacity: 1,
-      })
-        .bindTooltip(airportTooltipHtml(airport), {
-          direction: 'top', offset: [0, -10], className: 'tempuh-tooltip', opacity: 1,
+      COPIES.forEach(off => {
+        const pin = L.circleMarker([airport.lat, airport.lng + off], {
+          radius: 7, color: '#e8eef2', weight: 2.5, fillColor: '#0d1620', fillOpacity: 1,
         })
-        .on('click', () => onAirportClick?.(airport))
-        .addTo(map);
-      layers.pins.push(pin);
+          .bindTooltip(airportTooltipHtml(airport), {
+            direction: 'top', offset: [0, -10], className: 'tempuh-tooltip', opacity: 1,
+          })
+          .on('click', () => onAirportClick?.(airport))
+          .addTo(map);
+        layers.pins.push(pin);
 
-      const label = L.tooltip({
-        permanent: true, direction: 'right', offset: [10, 0],
-        className: 'tempuh-icao-label', interactive: false,
-      }).setContent(airport.icao).setLatLng([airport.lat, airport.lng]);
-      map.addLayer(label);
-      layers.labels.push(label);
+        const label = L.tooltip({
+          permanent: true, direction: 'right', offset: [10, 0],
+          className: 'tempuh-icao-label', interactive: false,
+        }).setContent(airport.icao).setLatLng([airport.lat, airport.lng + off]);
+        map.addLayer(label);
+        layers.labels.push(label);
+      });
     });
 
     // ── fitBounds — run after layers are added ───────────────────
@@ -189,16 +202,16 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       lastTs = ts;
       const p = animRef.current.progress;
 
-      markerData.forEach(({ marker, offset }) => {
-        const t   = (p + offset) % 1;
+      markerData.forEach(({ markers, offsetT }) => {
+        const t   = (p + offsetT) % 1;
         const pt  = interpGeodesic(from, to, t);
         const pt2 = interpGeodesic(from, to, Math.min(t + 0.008, 0.999));
-        marker.setLatLng(pt);
-        const icon = marker.getElement()?.querySelector('svg');
-        if (icon) {
-          const angle = Math.atan2(pt2[1] - pt[1], pt2[0] - pt[0]) * 180 / Math.PI;
-          icon.style.transform = `rotate(${angle}deg)`;
-        }
+        const angle = Math.atan2(pt2[1] - pt[1], pt2[0] - pt[0]) * 180 / Math.PI;
+        markers.forEach((m, ci) => {
+          m.setLatLng([pt[0], pt[1] + COPIES[ci]]);
+          const icon = m.getElement()?.querySelector('svg');
+          if (icon) icon.style.transform = `rotate(${angle}deg)`;
+        });
       });
 
       animRef.current.raf = requestAnimationFrame(animate);
