@@ -97,8 +97,10 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
 
     // Draw overlays on 3 world copies (−360/0/+360) so they stay visible and
     // continuous when panning across the wrapped map — without worldCopyJump's
-    // jarring view-snap.
+    // jarring view-snap. The copies follow the view (see onWorldPan), so you
+    // can scroll any number of worlds without them running out.
     const COPIES = [0, -360, 360];
+    let worldShift = 0;
 
     // ── Route polylines ──────────────────────────────────────────
     const markerData = [];
@@ -191,6 +193,21 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       fitRouteToView(map, from, to);
     });
 
+    // Re-center the static overlays on whichever world copy the view is over,
+    // so panning any distance keeps them visible (markers follow via worldShift).
+    const onWorldPan = () => {
+      const desired = Math.round(map.getCenter().lng / 360) * 360;
+      const delta = desired - worldShift;
+      if (!delta) return;
+      worldShift = desired;
+      const sh = ll => L.latLng(ll.lat, ll.lng + delta);
+      layers.routes.forEach(pl => pl.setLatLngs(pl.getLatLngs().map(sh)));
+      layers.rings.forEach(c => c.setLatLng(sh(c.getLatLng())));
+      layers.pins.forEach(c => c.setLatLng(sh(c.getLatLng())));
+      layers.labels.forEach(t => t.setLatLng(sh(t.getLatLng())));
+    };
+    map.on('move', onWorldPan);
+
     // ── Animation loop ────────────────────────────────────────────
     const PERIOD_MS = 28000;
     let lastTs = null;
@@ -208,7 +225,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
         const pt2 = interpGeodesic(from, to, Math.min(t + 0.008, 0.999));
         const angle = Math.atan2(pt2[1] - pt[1], pt2[0] - pt[0]) * 180 / Math.PI;
         markers.forEach((m, ci) => {
-          m.setLatLng([pt[0], pt[1] + COPIES[ci]]);
+          m.setLatLng([pt[0], pt[1] + COPIES[ci] + worldShift]);
           const icon = m.getElement()?.querySelector('svg');
           if (icon) icon.style.transform = `rotate(${angle}deg)`;
         });
@@ -220,6 +237,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
 
     return () => {
       cancelAnimationFrame(animRef.current.raf);
+      map.off('move', onWorldPan);
       zoomHandlers.forEach(handler => map.off('zoomend', handler));
     };
   }, [origin?.icao, dest?.icao, aircraft, focused, showRanges]);
