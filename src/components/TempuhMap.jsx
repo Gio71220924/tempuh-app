@@ -182,16 +182,20 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       });
     });
 
-    // ── fitBounds — run after layers are added ───────────────────
+    // ── fitBounds — only when the route changes, not on loadout edits ─
     fitRef.current.from = from;
     fitRef.current.to = to;
-    map.invalidateSize({ pan: false });
-    fitRouteToView(map, from, to);
-    cancelAnimationFrame(fitRef.current.raf);
-    fitRef.current.raf = requestAnimationFrame(() => {
+    const routeKey = `${origin.icao}->${dest.icao}`;
+    if (fitRef.current.routeKey !== routeKey) {
+      fitRef.current.routeKey = routeKey;
       map.invalidateSize({ pan: false });
       fitRouteToView(map, from, to);
-    });
+      cancelAnimationFrame(fitRef.current.raf);
+      fitRef.current.raf = requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false });
+        fitRouteToView(map, from, to);
+      });
+    }
 
     // Re-center the static overlays on whichever world copy the view is over,
     // so panning any distance keeps them visible (markers follow via worldShift).
@@ -207,6 +211,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       layers.labels.forEach(t => t.setLatLng(sh(t.getLatLng())));
     };
     map.on('move', onWorldPan);
+    onWorldPan(); // align freshly-drawn overlays to the current world copy
 
     // ── Animation loop ────────────────────────────────────────────
     const PERIOD_MS = 28000;

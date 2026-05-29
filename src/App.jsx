@@ -13,7 +13,7 @@ import './components/ui.css';
 
 // Default airports for first load (WIII → OMDB)
 const DEFAULT_ORIGIN = { icao:'WIII', iata:'CGK', name:'Soekarno-Hatta', city:'Jakarta',  country:'ID', lat:-6.13, lng:106.66, elev:34 };
-const DEFAULT_DEST   = { icao:'OMDB', iata:'DXB', name:'Dubai Intl',      city:'Dubai',   country:'AE', lat:25.25, lng:55.36,  elev:19 };
+const DEFAULT_DEST   = { icao:'WSSS', iata:'SIN', name:'Singapore Changi', city:'Singapore', country:'SG', lat:1.3592, lng:103.9894, elev:7 };
 
 const DEFAULT_FLEET = [
   { color:'r1', catId:'b77w', params:{ pax:396, payload:12 } },
