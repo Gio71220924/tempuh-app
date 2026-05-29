@@ -405,14 +405,32 @@ input[type=range] {
 .print-brief { display: none; }
 
 @media print {
-  @page { size: A4 portrait; margin: 18mm; }
-  body { background: #fff !important; color: #000 !important; overflow: visible !important; }
-  #root > * { display: none !important; }
+  @page { size: A4 portrait; margin: 14mm; }
+  html, body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* Hide the live app via visibility so the briefing (nested inside the
+     fixed wrapper) can still be made visible — display:none on an ancestor
+     can't be overridden by a descendant. */
+  body * { visibility: hidden !important; }
+  .print-brief, .print-brief * { visibility: visible !important; }
+  .leaflet-container { display: none !important; }
+
   .print-brief {
     display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
     color: #000;
     background: #fff;
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    /* Keep colored status / accent chips when printing */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .print-brief * { color: inherit !important; }
+  .print-brief table { page-break-inside: auto; }
+  .print-brief tr    { page-break-inside: avoid; }
 }
