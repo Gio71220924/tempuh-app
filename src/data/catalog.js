@@ -27,8 +27,17 @@ export function computeAircraft(fleetEntry, legNm, catalog) {
   if (!cat.oew || !cat.maxFuel) return null;
   const paxTonnes = (fleetEntry.params.pax * 100) / 1000;
   const totalPayload = fleetEntry.params.payload + paxTonnes;
-  const fuelAvail = Math.min(cat.maxFuel, cat.mtow - cat.oew - totalPayload);
-  const range = Math.max(0, Math.round((fuelAvail / cat.fuelBurn) * cat.cruise));
+  // Calibrated payload-range curve, tied to the published max range:
+  //  - below the design payload knee, tanks are full → range = maxRange
+  //  - above it, payload displaces fuel → range scales with fuel remaining
+  const knee = Math.max(0, cat.mtow - cat.oew - cat.maxFuel);
+  let range;
+  if (totalPayload <= knee) {
+    range = cat.maxRange;
+  } else {
+    const fuel = Math.max(0, cat.mtow - cat.oew - totalPayload);
+    range = Math.round(cat.maxRange * fuel / cat.maxFuel);
+  }
   const hours = legNm / cat.cruise;
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -61,12 +70,14 @@ export function computeAircraft(fleetEntry, legNm, catalog) {
  * Used to draw the mini SVG chart in the aircraft card.
  */
 export function payloadRangeCurve(cat) {
-  // Payload at which fuel tank starts limiting range (segment 1 → 2 knee)
+  // Calibrated to the published max range (see computeAircraft):
+  // flat at maxRange until the design-payload knee, then declines as payload
+  // displaces fuel, down to the structural max payload.
   const knee1Payload = Math.max(0, cat.mtow - cat.oew - cat.maxFuel);
   const knee2Payload = cat.maxPayload;
-  const ferryRange   = Math.round((cat.maxFuel / cat.fuelBurn) * cat.cruise);
-  const fuelAtMax    = cat.mtow - cat.oew - knee2Payload;
-  const rangeAtMax   = Math.max(0, Math.round((fuelAtMax / cat.fuelBurn) * cat.cruise));
+  const ferryRange   = cat.maxRange;
+  const fuelAtMax    = Math.max(0, cat.mtow - cat.oew - knee2Payload);
+  const rangeAtMax   = Math.round(cat.maxRange * fuelAtMax / cat.maxFuel);
   return { knee1Payload, knee2Payload, ferryRange, rangeAtMax };
 }
 

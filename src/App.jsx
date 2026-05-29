@@ -16,10 +16,10 @@ const DEFAULT_ORIGIN = { icao:'WIII', iata:'CGK', name:'Soekarno-Hatta', city:'J
 const DEFAULT_DEST   = { icao:'OMDB', iata:'DXB', name:'Dubai Intl',      city:'Dubai',   country:'AE', lat:25.25, lng:55.36,  elev:19 };
 
 const DEFAULT_FLEET = [
-  { color:'r1', catId:'b77w', params:{ pax:316, payload:56 } },
-  { color:'r2', catId:'g650', params:{ pax:14,  payload:2.0 } },
-  { color:'r3', catId:'a359', params:{ pax:352, payload:42 } },
-  { color:'r4', catId:'gl75', params:{ pax:15,  payload:2.0 } },
+  { color:'r1', catId:'b77w', params:{ pax:396, payload:12 } },
+  { color:'r2', catId:'g650', params:{ pax:14,  payload:1.0 } },
+  { color:'r3', catId:'a359', params:{ pax:315, payload:10 } },
+  { color:'r4', catId:'gl75', params:{ pax:15,  payload:1.0 } },
 ];
 
 export default function App() {
@@ -80,10 +80,12 @@ export default function App() {
     const used = new Set(fleet.map(f => f.color));
     const free = ROUTE_COLORS.find(c => !used.has(c));
     if (!free) return;
+    // Default to a typical load: most seats filled + light belly cargo,
+    // not the structural max payload (which would overload the jet).
     setFleet(prev => [...prev, {
       color: free,
       catId: cat.id,
-      params: { pax: Math.round(cat.maxPax * 0.8), payload: +(cat.maxPayload * 0.8).toFixed(1) },
+      params: { pax: Math.round(cat.maxPax * 0.85), payload: +(cat.maxPayload * 0.15).toFixed(1) },
     }]);
     setPalette(null);
   }, [fleet]);

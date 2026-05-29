@@ -58,25 +58,25 @@ MANUAL = [
     {
         'id': 'a339', 'name': 'Airbus A330-900neo', 'short': 'A330',
         'category': 'Commercial', 'subtype': 'widebody',
-        'maxPax': 440, 'maxPayload': 45.0, 'oew': 130.8, 'maxFuel': 111.3,
+        'maxPax': 287, 'maxPayload': 46.0, 'oew': 130.8, 'maxFuel': 111.3,
         'mtow': 251.0, 'fuelBurn': 5.2, 'cruise': 472, 'alt': 'FL370', 'maxRange': 7200,
     },
     {
         'id': 'a35k', 'name': 'Airbus A350-1000', 'short': 'A351',
         'category': 'Commercial', 'subtype': 'widebody',
-        'maxPax': 480, 'maxPayload': 60.0, 'oew': 155.0, 'maxFuel': 127.0,
+        'maxPax': 369, 'maxPayload': 69.0, 'oew': 155.0, 'maxFuel': 127.0,
         'mtow': 316.0, 'fuelBurn': 7.1, 'cruise': 488, 'alt': 'FL390', 'maxRange': 8700,
     },
     {
         'id': 'b77x', 'name': 'Boeing 777X-9', 'short': 'B777X',
         'category': 'Commercial', 'subtype': 'widebody',
-        'maxPax': 426, 'maxPayload': 74.0, 'oew': 167.8, 'maxFuel': 158.0,
-        'mtow': 352.0, 'fuelBurn': 7.0, 'cruise': 490, 'alt': 'FL380', 'maxRange': 7295,
+        'maxPax': 426, 'maxPayload': 70.0, 'oew': 167.8, 'maxFuel': 158.0,
+        'mtow': 352.0, 'fuelBurn': 7.0, 'cruise': 490, 'alt': 'FL380', 'maxRange': 7285,
     },
     {
         'id': 'bcs3', 'name': 'Airbus A220-300', 'short': 'A220',
         'category': 'Commercial', 'subtype': 'narrowbody',
-        'maxPax': 160, 'maxPayload': 15.0, 'oew': 35.6, 'maxFuel': 17.4,
+        'maxPax': 130, 'maxPayload': 15.0, 'oew': 35.6, 'maxFuel': 17.4,
         'mtow': 70.9, 'fuelBurn': 2.1, 'cruise': 447, 'alt': 'FL410', 'maxRange': 3400,
     },
     # Private jets — not in OpenAP
@@ -112,27 +112,28 @@ MANUAL = [
     },
 ]
 
-# OpenAP-sourced entries: (oap_code, our_id, short, category, subtype, name_override)
+# OpenAP-sourced entries. OpenAP's pax.max is the exit-limit (e.g. 550 for the
+# 777), not a real airline layout, and its cruise.range / mlw-oew payload run
+# optimistic — so we override pax (typical 2/3-class), maxRange (manufacturer
+# published) and maxPayload (realistic structural max) per aircraft.
+# Tuple: (oap_code, our_id, short, category, subtype,
+#         name_override, payload_override, range_override, pax_override, alt_override)
 OPENAP_AIRCRAFT = [
     # Commercial — widebody
-    ('b77w', 'b77w', 'B777',   'Commercial', 'widebody',   None),
-    ('a359', 'a359', 'A350',   'Commercial', 'widebody',   None),
-    ('b789', 'b789', 'B789',   'Commercial', 'widebody',   None),
-    ('a388', 'a388', 'A380',   'Commercial', 'superjumbo', None),
-    ('b788', 'b788', 'B788',   'Commercial', 'widebody',   None),
-    ('b748', 'b748', 'B748',   'Commercial', 'superjumbo', 'Boeing 747-8I'),
+    ('b77w', 'b77w', 'B777',   'Commercial', 'widebody',   None,            68.8, 7370, 396, None),
+    ('a359', 'a359', 'A350',   'Commercial', 'widebody',   None,            53.3, 8100, 315, None),
+    ('b789', 'b789', 'B789',   'Commercial', 'widebody',   None,            52.6, 7565, 296, None),
+    ('a388', 'a388', 'A380',   'Commercial', 'superjumbo', None,            84.0, 8000, 525, None),
+    ('b788', 'b788', 'B788',   'Commercial', 'widebody',   None,            45.6, 7355, 248, None),
+    ('b748', 'b748', 'B748',   'Commercial', 'superjumbo', 'Boeing 747-8I', 76.0, 7730, 410, None),
     # Commercial — narrowbody
-    ('a20n', 'a320', 'A320',   'Commercial', 'narrowbody', 'Airbus A320neo'),
-    # b738: OpenAP range (1998nm) uses heavy payload assumption; Boeing spec 2935nm
-    ('b738', 'b738', 'B738', 'Commercial', 'narrowbody', None, None, 2935),
-    # a21n uses A320 drag polar as synonym; override range with Airbus official spec
-    ('a21n', 'a21n', 'A321XLR', 'Commercial', 'narrowbody', 'Airbus A321XLR',
-     None, 4700),
-    ('b38m', 'b38m', 'B737M',  'Commercial', 'narrowbody', 'Boeing 737 MAX 8'),
+    ('a20n', 'a320', 'A320',   'Commercial', 'narrowbody', 'Airbus A320neo',   20.0, 3500, 165, None),
+    ('b738', 'b738', 'B738',   'Commercial', 'narrowbody', None,               20.7, 2935, 162, None),
+    # a21n uses the A320 drag polar as a synonym in OpenAP
+    ('a21n', 'a21n', 'A321XLR', 'Commercial', 'narrowbody', 'Airbus A321XLR',  25.0, 4700, 200, None),
+    ('b38m', 'b38m', 'B737M',  'Commercial', 'narrowbody', 'Boeing 737 MAX 8', 20.7, 3550, 178, None),
     # Private
-    # glf6: payload from mlw-oew is wrong for private jets; override with real spec
-    ('glf6', 'g650', 'G650', 'Private', 'long range', 'Gulfstream G650',
-     2.8, None, 19, 'FL410'),
+    ('glf6', 'g650', 'G650',   'Private',    'long range', 'Gulfstream G650',   2.8, 7000,  19, 'FL410'),
 ]
 
 
