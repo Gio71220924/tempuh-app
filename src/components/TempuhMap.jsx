@@ -27,8 +27,6 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       attributionControl: true,
       preferCanvas: true,
       worldCopyJump: true,
-      maxBounds: [[-85, -Infinity], [85, Infinity]],
-      maxBoundsViscosity: 1,
     });
 
     L.tileLayer(TILE_URL, {
@@ -54,10 +52,23 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     resizeObserver.observe(containerRef.current);
     fitRef.current.raf = requestAnimationFrame(syncMapSize);
 
+    const clampLatitude = () => {
+      const center = map.getCenter();
+      const lat = Math.max(-85, Math.min(85, center.lat));
+      if (lat !== center.lat) {
+        map.panTo([lat, center.lng], { animate: false });
+      }
+    };
+
+    map.on('moveend', clampLatitude);
+    map.on('zoomend', clampLatitude);
+
     return () => {
       cancelAnimationFrame(animRef.current.raf);
       cancelAnimationFrame(fitRef.current.raf);
       resizeObserver.disconnect();
+      map.off('moveend', clampLatitude);
+      map.off('zoomend', clampLatitude);
       map.remove();
       mapRef.current = null;
     };
@@ -112,29 +123,27 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       markerData.push({ marker, offset: initT });
     });
 
-    // ── Range areas (filled reachable region per aircraft) ───────
+    // Range ring per aircraft. Keep this visual-only so long-range jets stay readable on a wrapped map.
     if (showRanges) {
       aircraft.forEach(a => {
         if (!a.range || a.range <= 0) return;
         const color     = COLOR_HEX[a.tone] || '#fff';
         const isFocused  = focused === a.tone;
         const dimmed     = focused !== null && !isFocused;
-        const { polys, reachable } = reachableArea(from, a.range);
-        if (!polys.length) return;
+        const ring = L.circle(from, {
+          radius:      a.range * NM_TO_M,
+          color,
+          weight:      isFocused ? 2.4 : 1.4,
+          opacity:     dimmed ? 0.18 : (isFocused ? 0.9 : 0.62),
+          fillOpacity: 0,
+          dashArray:   '8 10',
+          interactive: false,
+        }).addTo(map);
+        layers.rings.push(ring);
 
         // reachable=true → polygon is the in-range area (filled in tone)
         // reachable=false → ultra-long-range; polygon is the small UNREACHABLE
         //   pocket near the antipode, drawn faint as a "gap" marker
-        const area = L.polygon(polys, {
-          color,
-          weight:      isFocused ? 1.6 : 1,
-          opacity:     dimmed ? 0.15 : (isFocused ? 0.7 : 0.4),
-          dashArray:   reachable ? null : '3 5',
-          fillColor:   color,
-          fillOpacity: dimmed ? 0.02 : (reachable ? (isFocused ? 0.1 : 0.05) : 0.04),
-          interactive: false,
-        }).addTo(map);
-        layers.rings.push(area);
       });
     }
 
@@ -256,6 +265,75 @@ function geodesicCircle(lat, lng, radiusNm, steps) {
     pts.push([φ * 180 / Math.PI, ((λ * 180 / Math.PI + 540) % 360) - 180]);
   }
   return pts;
+}
+
+function geodesicRingSegments(center, radiusNm, steps = 240) {
+  const pts = geodesicCircleContinuous(center[0], center[1], radiusNm, steps);
+  if (pts.length < 2) return [];
+  return [pts];
+}
+
+function geodesicCircleContinuous(lat, lng, radiusNm, steps) {
+  const d    = radiusNm / 3440.065;
+  const latR = lat * Math.PI / 180;
+  const lngR = lng * Math.PI / 180;
+  const pts  = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (2 * Math.PI * i) / steps;
+    const nextLatR = Math.asin(Math.max(-1, Math.min(1,
+      Math.sin(latR) * Math.cos(d) + Math.cos(latR) * Math.sin(d) * Math.cos(bearing)
+    )));
+    const nextLngR = lngR + Math.atan2(
+      Math.sin(bearing) * Math.sin(d) * Math.cos(latR),
+      Math.cos(d) - Math.sin(latR) * Math.sin(nextLatR)
+    );
+
+    const point = [nextLatR * 180 / Math.PI, nextLngR * 180 / Math.PI];
+    point[1] = pts.length
+      ? closestLngToRef(point[1], pts[pts.length - 1][1])
+      : closestLngToRef(point[1], lng);
+    pts.push(point);
+  }
+
+  return pts;
+}
+
+function closestLngToRef(lng, refLng) {
+  let out = lng;
+  while (out - refLng > 180) out -= 360;
+  while (out - refLng < -180) out += 360;
+  return out;
+}
+
+function splitRingAtAntimeridian(pts) {
+
+  const segments = [];
+  let current = [pts[0]];
+
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const delta = b[1] - a[1];
+
+    if (Math.abs(delta) > 180) {
+      const eastward = delta < 0;
+      const aEdge = eastward ? 180 : -180;
+      const bEdge = eastward ? -180 : 180;
+      const bShift = eastward ? b[1] + 360 : b[1] - 360;
+      const t = (aEdge - a[1]) / (bShift - a[1]);
+      const edgeLat = a[0] + t * (b[0] - a[0]);
+
+      current.push([edgeLat, aEdge]);
+      segments.push(current);
+      current = [[edgeLat, bEdge], b];
+    } else {
+      current.push(b);
+    }
+  }
+
+  if (current.length > 1) segments.push(current);
+  return segments;
 }
 
 /**
