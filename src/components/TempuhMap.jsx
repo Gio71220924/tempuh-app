@@ -112,28 +112,29 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       markerData.push({ marker, offset: initT });
     });
 
-    // ── Range rings (geodesic polyline, stable on pan/zoom) ──────
+    // ── Range areas (filled reachable region per aircraft) ───────
     if (showRanges) {
       aircraft.forEach(a => {
         if (!a.range || a.range <= 0) return;
         const color     = COLOR_HEX[a.tone] || '#fff';
-        const isFocused = focused === a.tone;
-        const ring = L.polyline(geodesicCirclePoints(from, a.range), {
-          color,
-          weight:      isFocused ? 2 : 1.2,
-          opacity:     isFocused ? 0.85 : 0.5,
-          dashArray:   '6 8',
-          interactive: false,
-          fill:        false,
-        }).addTo(map);
-        layers.rings.push(ring);
+        const isFocused  = focused === a.tone;
+        const dimmed     = focused !== null && !isFocused;
+        const { polys, reachable } = reachableArea(from, a.range);
+        if (!polys.length) return;
 
-        const hideRings = () => {
-          ring.setStyle({ opacity: map.getZoom() >= 3 ? (isFocused ? 0.85 : 0.5) : 0 });
-        };
-        map.on('zoomend', hideRings);
-        zoomHandlers.push(hideRings);
-        hideRings();
+        // reachable=true → polygon is the in-range area (filled in tone)
+        // reachable=false → ultra-long-range; polygon is the small UNREACHABLE
+        //   pocket near the antipode, drawn faint as a "gap" marker
+        const area = L.polygon(polys, {
+          color,
+          weight:      isFocused ? 1.6 : 1,
+          opacity:     dimmed ? 0.15 : (isFocused ? 0.7 : 0.4),
+          dashArray:   reachable ? null : '3 5',
+          fillColor:   color,
+          fillOpacity: dimmed ? 0.02 : (reachable ? (isFocused ? 0.1 : 0.05) : 0.04),
+          interactive: false,
+        }).addTo(map);
+        layers.rings.push(area);
       });
     }
 
@@ -234,11 +235,14 @@ function geodesicPoints(from, to, steps = 80) {
   return pts;
 }
 
-function geodesicCirclePoints([lat, lng], radiusNm, steps = 90) {
+// Mercator latitude limit used to cap polar fills
+const POLE_EDGE = 85;
+
+function geodesicCircle(lat, lng, radiusNm, steps) {
   const d    = radiusNm / 3440.065;
   const latR = lat * Math.PI / 180;
   const lngR = lng * Math.PI / 180;
-  const raw  = [];
+  const pts  = [];
   for (let i = 0; i <= steps; i++) {
     const brg    = (2 * Math.PI * i) / steps;
     const sinPhi = Math.max(-1, Math.min(1,
@@ -249,21 +253,77 @@ function geodesicCirclePoints([lat, lng], radiusNm, steps = 90) {
       Math.sin(brg) * Math.sin(d) * Math.cos(latR),
       Math.cos(d) - Math.sin(latR) * Math.sin(φ)
     );
-    raw.push([φ * 180 / Math.PI, λ * 180 / Math.PI]);
+    pts.push([φ * 180 / Math.PI, ((λ * 180 / Math.PI + 540) % 360) - 180]);
   }
-  // Split into segments at longitude discontinuities (antimeridian / polar crossing)
-  // rather than unwrapping, which breaks for rings that cross the poles
-  const segments = [];
-  let seg = [raw[0]];
-  for (let i = 1; i < raw.length; i++) {
-    if (Math.abs(raw[i][1] - raw[i-1][1]) > 90) {
-      if (seg.length > 1) segments.push(seg);
-      seg = [];
+  return pts;
+}
+
+/**
+ * Returns the on-map polygon(s) for an aircraft's reach from `center`.
+ * { polys: [[ [lat,lng], … ], …], reachable }
+ *  - reachable=true  → polys enclose the in-range area
+ *  - reachable=false → range exceeds a quarter-globe; polys enclose the small
+ *    UNREACHABLE pocket near the antipode instead (clean to draw, reads as a gap)
+ * Handles antimeridian crossings and pole-enclosing circles.
+ */
+function reachableArea(center, radiusNm, steps = 180) {
+  let [lat, lng] = center;
+  let r = radiusNm;
+  let reachable = true;
+  if (radiusNm > 5400) {                 // > 90°: use antipode complement
+    lat = -lat;
+    lng = lng > 0 ? lng - 180 : lng + 180;
+    r   = 10800 - radiusNm;
+    reachable = false;
+  }
+
+  const rDeg      = r / 60;
+  const enclosesN = rDeg > 90 - lat;
+  const enclosesS = rDeg > 90 + lat;
+  const pts       = geodesicCircle(lat, lng, r, steps);
+
+  // Pole-enclosing: boundary is single-valued per longitude → sort by lng,
+  // then cap along the top/bottom map edge.
+  if (enclosesN || enclosesS) {
+    const body = pts.slice(0, -1).sort((a, b) => a[1] - b[1]);
+    const edge = enclosesN ? POLE_EDGE : -POLE_EDGE;
+    return { polys: [[[edge, -180], ...body, [edge, 180]]], reachable };
+  }
+
+  // Otherwise cut the loop at antimeridian crossings; each piece closes
+  // along the date line. Start away from ±180 to avoid a wrap seam.
+  let arr = pts;
+  let cIdx = 0, best = Infinity;
+  for (let i = 0; i < arr.length - 1; i++) {
+    const dist = Math.abs(((arr[i][1] - lng + 540) % 360) - 180);
+    if (dist < best) { best = dist; cIdx = i; }
+  }
+  arr = [...arr.slice(cIdx), ...arr.slice(1, cIdx + 1)];
+
+  const polys = [];
+  let cur = [arr[0]];
+  for (let i = 1; i < arr.length; i++) {
+    const a = arr[i - 1], b = arr[i];
+    if (Math.abs(b[1] - a[1]) > 180) {
+      const eastward = b[1] < a[1];
+      const aEdge = eastward ? 180 : -180;
+      const bEdge = eastward ? -180 : 180;
+      const bShift = eastward ? b[1] + 360 : b[1] - 360;
+      const t = (aEdge - a[1]) / (bShift - a[1]);
+      const latE = a[0] + t * (b[0] - a[0]);
+      cur.push([latE, aEdge]);
+      polys.push(cur);
+      cur = [[latE, bEdge], b];
+    } else {
+      cur.push(b);
     }
-    seg.push(raw[i]);
   }
-  if (seg.length > 1) segments.push(seg);
-  return segments.length > 1 ? segments : segments[0] || [];
+  polys.push(cur);
+  if (polys.length > 1) {
+    polys[0] = [...polys[polys.length - 1], ...polys[0].slice(1)];
+    polys.pop();
+  }
+  return { polys, reachable };
 }
 
 function interpGeodesic([lat1, lng1], [lat2, lng2], t) {

@@ -33,6 +33,7 @@ export default function App() {
   const [fleet,     setFleet]     = useState(DEFAULT_FLEET);
   const [focused,   setFocused]   = useState(null);
   const [showRanges, setShowRanges] = useState(true);
+  const [panelsOpen, setPanelsOpen] = useState(true);
 
   const [palette,   setPalette]   = useState(null); // null | 'from' | 'to' | 'aircraft'
   const [palQuery,  setPalQuery]  = useState('');
@@ -146,6 +147,7 @@ export default function App() {
       />
 
       {/* Brand — top left */}
+      {panelsOpen && (
       <div style={{
         position: 'absolute', top: 18, left: 18, zIndex: 20,
         display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none',
@@ -167,8 +169,10 @@ export default function App() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Top bar */}
+      {panelsOpen && (
       <TopBar
         origin={origin}
         dest={dest}
@@ -177,9 +181,15 @@ export default function App() {
         onToClick={() => openPalette('to')}
         onSwap={swapRoute}
       />
+      )}
 
       {/* Map controls (top-right, below Leaflet zoom) */}
       <div className="map-controls" style={{ top: 80 }}>
+        <button
+          className={`ctrl-btn${panelsOpen ? '' : ' active'}`}
+          title={panelsOpen ? 'Hide panels — full map' : 'Show panels'}
+          onClick={() => setPanelsOpen(o => !o)}
+        >{panelsOpen ? '⤢' : '⤡'}</button>
         <button
           className={`ctrl-btn${showRanges ? ' active' : ''}`}
           title="Toggle range rings"
@@ -193,6 +203,7 @@ export default function App() {
       </div>
 
       {/* Left dock */}
+      {panelsOpen && (
       <LeftDock
         origin={origin}
         dest={dest}
@@ -207,14 +218,17 @@ export default function App() {
         onRemoveAircraft={removeAircraft}
         onAddClick={() => openPalette('aircraft')}
       />
+      )}
 
       {/* Comparison card (bottom-right) */}
+      {panelsOpen && (
       <ComparisonCard
         aircraft={aircraft}
         legNm={legNm}
         onPrint={() => window.print()}
         onSave={handleSave}
       />
+      )}
 
       {/* Command palette */}
       {palette && (
