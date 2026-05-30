@@ -40,7 +40,7 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     const syncMapSize = () => {
       map.invalidateSize({ pan: false });
       if (fitRef.current.from && fitRef.current.to) {
-        fitRouteToView(map, fitRef.current.from, fitRef.current.to);
+        fitRouteToView(map, fitRef.current.from, fitRef.current.to, fitRef.current.extraBounds);
       }
     };
 
@@ -183,17 +183,24 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     });
 
     // ── fitBounds — only when the route changes, not on loadout edits ─
+    // Include the largest range ring so it fits in the initial view.
+    let extraBounds = null;
+    if (showRanges) {
+      const maxR = aircraft.reduce((m, a) => (a.range > 0 ? Math.max(m, a.range) : m), 0);
+      if (maxR > 0) extraBounds = rangeRingBounds(from, maxR);
+    }
     fitRef.current.from = from;
     fitRef.current.to = to;
+    fitRef.current.extraBounds = extraBounds;
     const routeKey = `${origin.icao}->${dest.icao}`;
     if (fitRef.current.routeKey !== routeKey) {
       fitRef.current.routeKey = routeKey;
       map.invalidateSize({ pan: false });
-      fitRouteToView(map, from, to);
+      fitRouteToView(map, from, to, extraBounds);
       cancelAnimationFrame(fitRef.current.raf);
       fitRef.current.raf = requestAnimationFrame(() => {
         map.invalidateSize({ pan: false });
-        fitRouteToView(map, from, to);
+        fitRouteToView(map, from, to, extraBounds);
       });
     }
 
@@ -257,16 +264,34 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function fitRouteToView(map, from, to) {
+function fitRouteToView(map, from, to, extraBounds) {
   try {
-    const bounds = L.latLngBounds(from, to).pad(0.3);
-    map.fitBounds(bounds, {
+    const bounds = L.latLngBounds(from, to);
+    if (extraBounds) bounds.extend(extraBounds);
+    map.fitBounds(bounds.pad(extraBounds ? 0.08 : 0.3), {
       animate: false,
       maxZoom: 6,
       paddingTopLeft: [360, 110],
       paddingBottomRight: [430, 260],
     });
   } catch (_) {}
+}
+
+// Approximate lat/lng bounding box of a geodesic range ring, so the initial
+// view can be zoomed out far enough to contain it.
+function rangeRingBounds([lat, lng], rangeNm) {
+  const latDelta = rangeNm / 60;                       // 1° lat ≈ 60 nm
+  const north = Math.min(85, lat + latDelta);
+  const south = Math.max(-85, lat - latDelta);
+  const cosLat = Math.cos(lat * Math.PI / 180);
+  let lngDelta;
+  if (latDelta >= 90 - Math.abs(lat) || cosLat < 0.1) {
+    lngDelta = 180;                                    // ring reaches a pole → full width
+  } else {
+    const ratio = Math.sin(latDelta * Math.PI / 180) / cosLat;
+    lngDelta = ratio >= 1 ? 180 : Math.asin(ratio) * 180 / Math.PI;
+  }
+  return L.latLngBounds([south, lng - lngDelta], [north, lng + lngDelta]);
 }
 
 function geodesicPoints(from, to, steps = 80) {
