@@ -279,14 +279,50 @@ input[type=range] {
   flex-wrap: nowrap;
 }
 
+/* ── Route colour legend (bottom-center) ────────────────────────── */
+.map-legend {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--stroke-dim);
+  border-radius: 999px;
+  padding: 5px 10px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  max-width: calc(100vw - 700px);
+  overflow-x: auto;
+}
+.legend-label {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint); margin-right: 3px;
+}
+.legend-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim);
+  padding: 3px 7px; border-radius: 999px; white-space: nowrap;
+  transition: color .12s, background .12s, opacity .12s;
+}
+.legend-item:hover { color: var(--ink); background: rgba(255,255,255,0.05); }
+.legend-item.on    { color: var(--ink); background: rgba(255,255,255,0.09); }
+.legend-item.dim   { opacity: 0.4; }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
 /* ── Panel collapse transitions (full-map toggle ⤢) ─────────────── */
-.top-bar, .dock-left, .result-card, .brand-badge {
+.top-bar, .dock-left, .result-card, .brand-badge, .map-legend {
   transition: opacity .28s ease, transform .28s ease;
 }
 .panels-hidden .top-bar     { opacity: 0; transform: translate(-50%, -18px); pointer-events: none; }
 .panels-hidden .dock-left   { opacity: 0; transform: translateX(-24px);      pointer-events: none; }
 .panels-hidden .result-card { opacity: 0; transform: translateY(24px);       pointer-events: none; }
 .panels-hidden .brand-badge { opacity: 0; transform: translateX(-12px); }
+.panels-hidden .map-legend  { opacity: 0; transform: translate(-50%, 24px);  pointer-events: none; }
 
 /* ── Left dock ──────────────────────────────────────────────────── */
 .dock-left {

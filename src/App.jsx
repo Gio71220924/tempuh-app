@@ -4,6 +4,7 @@ import TopBar from './components/TopBar.jsx';
 import LeftDock from './components/LeftDock.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import ComparisonCard from './components/ComparisonCard.jsx';
+import Legend from './components/Legend.jsx';
 import PrintBrief from './components/PrintBrief.jsx';
 import { loadAirports } from './services/airports.js';
 import { loadAircraft } from './services/aircraft.js';
@@ -226,6 +227,9 @@ export default function App() {
         onPrint={() => window.print()}
         onSave={handleSave}
       />
+
+      {/* Route colour legend (bottom-center) */}
+      <Legend aircraft={aircraft} focused={focused} onFocus={setFocused} />
 
       {/* Command palette */}
       {palette && (
