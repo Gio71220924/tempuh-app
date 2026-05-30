@@ -6,6 +6,7 @@ import { COLOR_HEX, fmtNm } from '../data/catalog.js';
 const TILE_URL  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 const NM_TO_M   = 1852;
+const OUT_RED   = '#ff5468';   // unreachable-tail / out-of-range accent
 
 export default function TempuhMap({ origin, dest, aircraft, focused, showRanges, airports, onAirportClick, onSetOrigin, onSetDest }) {
   const containerRef = useRef(null);
@@ -169,20 +170,53 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     const basePts = geodesicPoints(from, to, 80);
 
     aircraft.forEach((a, idx) => {
-      const color  = COLOR_HEX[a.tone] || '#fff';
-      const dimmed = focused !== null && focused !== a.tone;
+      const color      = COLOR_HEX[a.tone] || '#fff';
+      const isFocused  = focused === a.tone;
+      const dimmed     = focused !== null && !isFocused;
+      const outOfRange = a.range < a.dist;
+      const reachFrac  = outOfRange ? Math.max(0, Math.min(1, a.range / a.dist)) : 1;
 
       COPIES.forEach(off => {
         const pts = off ? basePts.map(([la, ln]) => [la, ln + off]) : basePts;
-        const poly = L.polyline(pts, {
-          color,
-          weight:    dimmed ? 1.2 : 2.5,
-          opacity:   dimmed ? 0.2 : 0.85,
-          dashArray: '6 5',
-          lineCap:   'round',
-        }).addTo(map);
-        layers.routes.push(poly);
+
+        if (isFocused && outOfRange) {
+          // Split: reachable portion in tone, unreachable tail in danger red.
+          const splitIdx  = Math.round(reachFrac * (pts.length - 1));
+          const reachPts  = pts.slice(0, splitIdx + 1);
+          const beyondPts = pts.slice(splitIdx);
+          layers.routes.push(
+            L.polyline(reachPts, { color, weight: 2.5, opacity: 0.9, dashArray: '6 5', lineCap: 'round' }).addTo(map),
+            L.polyline(beyondPts, { color: OUT_RED, weight: 2, opacity: 0.85, dashArray: '2 7', lineCap: 'round' }).addTo(map),
+          );
+        } else {
+          layers.routes.push(
+            L.polyline(pts, {
+              color,
+              weight:    dimmed ? 1.2 : 2.5,
+              opacity:   dimmed ? 0.2 : 0.85,
+              dashArray: '6 5',
+              lineCap:   'round',
+            }).addTo(map),
+          );
+        }
       });
+
+      // "Runs out here" marker at the point along the route where range ends.
+      if (outOfRange) {
+        const rp = interpGeodesic(from, to, reachFrac);
+        COPIES.forEach(off => {
+          const m = L.marker([rp[0], rp[1] + off], {
+            icon:         makeReachIcon(color),
+            zIndexOffset: 400,
+            opacity:      dimmed ? 0.25 : 1,
+          })
+            .bindTooltip(`${a.short} runs out · ${fmtNm(a.range)}/${fmtNm(a.dist)} nm`, {
+              direction: 'top', offset: [0, -10], className: 'tempuh-route-tip', opacity: 1,
+            })
+            .addTo(map);
+          layers.pins.push(m); // static → repositioned by onWorldPan
+        });
+      }
 
       const initT   = (idx * 0.18) % 1;
       const basePt  = interpGeodesic(from, to, initT);
@@ -568,6 +602,14 @@ function routeTooltipHtml(a) {
     <div class="rt-row"><span>fuel</span><b>${a.fuel}</b></div>
     <div class="rt-badge ${inRange ? 'ok' : 'out'}">${inRange ? '✓ in range' : '✗ out of range'}</div>
   </div>`;
+}
+
+function makeReachIcon(color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="-9 -9 18 18" style="display:block">
+    <circle r="7" fill="#0d1620" stroke="${color}" stroke-width="1.5"/>
+    <path d="M -3 -3 L 3 3 M 3 -3 L -3 3" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>
+  </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [18, 18], iconAnchor: [9, 9] });
 }
 
 function airportTooltipHtml(a) {
