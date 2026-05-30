@@ -7,12 +7,16 @@ const TILE_URL  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 const NM_TO_M   = 1852;
 
-export default function TempuhMap({ origin, dest, aircraft, focused, showRanges, onAirportClick }) {
+export default function TempuhMap({ origin, dest, aircraft, focused, showRanges, airports, onAirportClick, onSetOrigin, onSetDest }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
   const layersRef    = useRef({ routes: [], rings: [], pins: [], labels: [], markers: [] });
   const animRef      = useRef({ raf: null, progress: 0 });
   const fitRef       = useRef({ raf: null, from: null, to: null });
+
+  // Latest context for the map-click handler (registered once, avoids stale closure)
+  const clickCtxRef  = useRef({});
+  clickCtxRef.current = { airports, onSetOrigin, onSetDest };
 
   // ── Init Leaflet map once ──────────────────────────────────────
   useEffect(() => {
@@ -63,12 +67,69 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
     map.on('moveend', clampLatitude);
     map.on('zoomend', clampLatitude);
 
+    // Click empty map → nearest airport → popup to set origin/destination.
+    const onMapClick = (e) => {
+      const { airports: list, onSetOrigin: setO, onSetDest: setD } = clickCtxRef.current;
+      if (!list || !list.length) return;
+      const clat = e.latlng.lat;
+      const clng = ((e.latlng.lng + 540) % 360) - 180;
+      const cosc = Math.cos(clat * Math.PI / 180);
+      let best = null, bestD = Infinity;
+      for (const ap of list) {
+        let dl = ap.lng - clng;
+        if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
+        const dlat = ap.lat - clat;
+        const d = dlat * dlat + (dl * cosc) * (dl * cosc);
+        if (d < bestD) { bestD = d; best = ap; }
+      }
+      const wrap = Math.round(e.latlng.lng / 360) * 360;
+      if (!best || Math.sqrt(bestD) > 8) {   // ~480 nm: nothing close enough
+        L.popup({ className: 'tempuh-set-popup' })
+          .setLatLng(e.latlng)
+          .setContent('<div class="sap-empty">No airport nearby</div>')
+          .openOn(map);
+        return;
+      }
+      const el = document.createElement('div');
+      el.className = 'sap';
+      const mk = (cls, text) => {
+        const d = document.createElement('div');
+        d.className = cls;
+        d.textContent = text;
+        return d;
+      };
+      const head = document.createElement('div');
+      head.className = 'sap-head';
+      const icao = document.createElement('span'); icao.className = 'sap-icao'; icao.textContent = best.icao;
+      const iata = document.createElement('span'); iata.className = 'sap-iata'; iata.textContent = best.iata || '';
+      head.append(icao, iata);
+      el.append(
+        head,
+        mk('sap-city', `${best.city || ''}${best.country ? ' · ' + best.country : ''}`),
+        mk('sap-name', best.name || ''),
+      );
+      const btns = document.createElement('div');
+      btns.className = 'sap-btns';
+      const oBtn = document.createElement('button'); oBtn.type = 'button'; oBtn.className = 'sap-btn sap-o'; oBtn.textContent = '↧ origin';
+      const dBtn = document.createElement('button'); dBtn.type = 'button'; dBtn.className = 'sap-btn sap-d'; dBtn.textContent = '↥ destination';
+      oBtn.addEventListener('click', () => { clickCtxRef.current.onSetOrigin?.(best); map.closePopup(); });
+      dBtn.addEventListener('click', () => { clickCtxRef.current.onSetDest?.(best); map.closePopup(); });
+      btns.append(oBtn, dBtn);
+      el.append(btns);
+      L.popup({ className: 'tempuh-set-popup', offset: [0, -4] })
+        .setLatLng([best.lat, best.lng + wrap])
+        .setContent(el)
+        .openOn(map);
+    };
+    map.on('click', onMapClick);
+
     return () => {
       cancelAnimationFrame(animRef.current.raf);
       cancelAnimationFrame(fitRef.current.raf);
       resizeObserver.disconnect();
       map.off('moveend', clampLatitude);
       map.off('zoomend', clampLatitude);
+      map.off('click', onMapClick);
       map.remove();
       mapRef.current = null;
     };

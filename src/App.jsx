@@ -143,9 +143,12 @@ export default function App() {
         focused={focused}
         setFocused={setFocused}
         showRanges={showRanges}
+        airports={airports}
         onAirportClick={(airport) => {
           openPalette(airport.icao === origin.icao ? 'from' : 'to');
         }}
+        onSetOrigin={setOrigin}
+        onSetDest={setDest}
       />
 
       {/* Brand — top left */}
