@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { COLOR_HEX } from '../data/catalog.js';
+import { COLOR_HEX, fmtNm } from '../data/catalog.js';
 
 const TILE_URL  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
@@ -190,9 +190,13 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
         const m = L.marker([basePt[0], basePt[1] + off], {
           icon:         makePlaneIcon(color),
           zIndexOffset: 500,
-          interactive:  false,
+          interactive:  true,
           opacity:      dimmed ? 0.2 : 1,
-        }).addTo(map);
+        })
+          .bindTooltip(routeTooltipHtml(a), {
+            direction: 'top', offset: [0, -12], className: 'tempuh-route-tip', opacity: 1, sticky: true,
+          })
+          .addTo(map);
         layers.markers.push(m);
         return m;
       });
@@ -546,6 +550,24 @@ function makePlaneIcon(color) {
           fill="${color}" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>
   </svg>`;
   return L.divIcon({ html: svg, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+}
+
+function routeTooltipHtml(a) {
+  // Values come from our own computed catalog (trusted) — safe to interpolate.
+  const color   = COLOR_HEX[a.tone] || '#fff';
+  const inRange = a.range >= a.dist;
+  return `<div class="rt">
+    <div class="rt-head">
+      <span class="rt-dot" style="background:${color}"></span>
+      <span class="rt-short">${a.short}</span>
+      <span class="rt-type">${a.type}</span>
+    </div>
+    <div class="rt-row"><span>this leg</span><b>${fmtNm(a.dist)} nm</b></div>
+    <div class="rt-row"><span>range</span><b>${fmtNm(a.range)} nm</b></div>
+    <div class="rt-row"><span>time</span><b>${a.time}</b></div>
+    <div class="rt-row"><span>fuel</span><b>${a.fuel}</b></div>
+    <div class="rt-badge ${inRange ? 'ok' : 'out'}">${inRange ? '✓ in range' : '✗ out of range'}</div>
+  </div>`;
 }
 
 function airportTooltipHtml(a) {

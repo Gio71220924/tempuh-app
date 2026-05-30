@@ -81,3 +81,25 @@
 }
 .sap-btn:hover { border-color: #ffc857; color: #ffc857; }
 .sap-empty { font-size: 12px; color: #93a4b4; font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+
+/* Route / aircraft hover tooltip (on plane markers) */
+.tempuh-route-tip {
+  background: rgba(18, 27, 37, 0.97) !important;
+  border: 1px solid rgba(232, 238, 242, 0.14) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5) !important;
+  color: #e8eef2 !important;
+  padding: 9px 11px !important;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif !important;
+  pointer-events: none !important;
+}
+.tempuh-route-tip::before { display: none !important; }
+.rt-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.rt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.rt-short { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; color: #e8eef2; }
+.rt-type { font-size: 10px; color: #5a6b7a; }
+.rt-row { display: flex; justify-content: space-between; gap: 16px; font-size: 11px; color: #93a4b4; line-height: 1.7; }
+.rt-row b { font-family: 'IBM Plex Mono', monospace; color: #e8eef2; font-weight: 600; }
+.rt-badge { margin-top: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-align: center; padding: 3px 0; border-radius: 5px; }
+.rt-badge.ok  { color: #a3e4a8; background: rgba(163, 228, 168, 0.12); }
+.rt-badge.out { color: #f78ca0; background: rgba(247, 140, 160, 0.12); }
