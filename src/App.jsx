@@ -134,7 +134,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0 }}>
+    <div className={panelsOpen ? 'app-shell' : 'app-shell panels-hidden'} style={{ position: 'fixed', inset: 0 }}>
       {/* Map layer */}
       <TempuhMap
         origin={origin}
@@ -152,8 +152,7 @@ export default function App() {
       />
 
       {/* Brand — top left */}
-      {panelsOpen && (
-      <div style={{
+      <div className="brand-badge" style={{
         position: 'absolute', top: 18, left: 18, zIndex: 20,
         display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none',
       }}>
@@ -174,10 +173,8 @@ export default function App() {
           </div>
         </div>
       </div>
-      )}
 
       {/* Top bar */}
-      {panelsOpen && (
       <TopBar
         origin={origin}
         dest={dest}
@@ -186,7 +183,6 @@ export default function App() {
         onToClick={() => openPalette('to')}
         onSwap={swapRoute}
       />
-      )}
 
       {/* Map controls (top-right, below Leaflet zoom) */}
       <div className="map-controls" style={{ top: 80 }}>
@@ -208,7 +204,6 @@ export default function App() {
       </div>
 
       {/* Left dock */}
-      {panelsOpen && (
       <LeftDock
         origin={origin}
         dest={dest}
@@ -223,17 +218,14 @@ export default function App() {
         onRemoveAircraft={removeAircraft}
         onAddClick={() => openPalette('aircraft')}
       />
-      )}
 
       {/* Comparison card (bottom-right) */}
-      {panelsOpen && (
       <ComparisonCard
         aircraft={aircraft}
         legNm={legNm}
         onPrint={() => window.print()}
         onSave={handleSave}
       />
-      )}
 
       {/* Command palette */}
       {palette && (

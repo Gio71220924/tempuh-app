@@ -279,6 +279,15 @@ input[type=range] {
   flex-wrap: nowrap;
 }
 
+/* ── Panel collapse transitions (full-map toggle ⤢) ─────────────── */
+.top-bar, .dock-left, .result-card, .brand-badge {
+  transition: opacity .28s ease, transform .28s ease;
+}
+.panels-hidden .top-bar     { opacity: 0; transform: translate(-50%, -18px); pointer-events: none; }
+.panels-hidden .dock-left   { opacity: 0; transform: translateX(-24px);      pointer-events: none; }
+.panels-hidden .result-card { opacity: 0; transform: translateY(24px);       pointer-events: none; }
+.panels-hidden .brand-badge { opacity: 0; transform: translateX(-12px); }
+
 /* ── Left dock ──────────────────────────────────────────────────── */
 .dock-left {
   position: absolute;
