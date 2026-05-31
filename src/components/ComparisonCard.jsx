@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { fmtNm } from '../data/catalog.js';
 
-export default function ComparisonCard({ aircraft, legNm, onPrint, onSave }) {
+export default function ComparisonCard({ aircraft, legNm, onPrint, onShare }) {
   const [sortBy, setSortBy] = useState('range');
+  const [copied, setCopied] = useState(false);
 
   if (!aircraft.length) return null;
 
@@ -81,7 +82,15 @@ export default function ComparisonCard({ aircraft, legNm, onPrint, onSave }) {
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--ink-faint)' }}>{bestLabel}</span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button className="btn" style={{ padding: '4px 10px', fontSize: 11 }} onClick={onPrint}>print</button>
-          <button className="btn primary" style={{ padding: '4px 12px', fontSize: 11 }} onClick={onSave}>save</button>
+          <button
+            className="btn primary"
+            style={{ padding: '4px 12px', fontSize: 11 }}
+            title="Copy a shareable link to this plan"
+            onClick={async () => {
+              const ok = await onShare();
+              if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+            }}
+          >{copied ? 'link copied ✓' : 'share'}</button>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import PrintBrief from './components/PrintBrief.jsx';
 import { loadAirports } from './services/airports.js';
 import { loadAircraft } from './services/aircraft.js';
 import { ROUTE_COLORS, computeAircraft, gcDistanceNm } from './data/catalog.js';
+import { encodePlan, readInitialPlan, savePlanLocal } from './services/planUrl.js';
 import './components/map.css';
 import './components/ui.css';
 
@@ -24,6 +25,9 @@ const DEFAULT_FLEET = [
   { color:'r4', catId:'gl75', params:{ pax:15,  payload:1.0 } },
 ];
 
+// Captured once at module load, before any effect can rewrite location.hash.
+const INITIAL_HASH = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+
 export default function App() {
   const [airports,  setAirports]  = useState([]);
   const [catalog,   setCatalog]   = useState([]);
@@ -36,6 +40,7 @@ export default function App() {
   const [focused,   setFocused]   = useState(null);
   const [showRanges, setShowRanges] = useState(true);
   const [panelsOpen, setPanelsOpen] = useState(true);
+  const [ready,      setReady]      = useState(false);
 
   const [palette,   setPalette]   = useState(null); // null | 'from' | 'to' | 'aircraft'
   const [palQuery,  setPalQuery]  = useState('');
@@ -51,9 +56,29 @@ export default function App() {
   // ── Load airports + aircraft catalog in parallel ───────────────
   useEffect(() => {
     Promise.all([loadAirports(), loadAircraft()])
-      .then(([ap, ac]) => { setAirports(ap); setCatalog(ac); setLoading(false); })
+      .then(([ap, ac]) => {
+        setAirports(ap);
+        setCatalog(ac);
+        // Restore a shared/last-session plan once data is available.
+        const restored = readInitialPlan(INITIAL_HASH, ap, ac);
+        if (restored) {
+          setOrigin(restored.origin);
+          setDest(restored.dest);
+          setFleet(restored.fleet);
+        }
+        setReady(true);
+        setLoading(false);
+      })
       .catch(err => { setLoadErr(err.message); setLoading(false); });
   }, []);
+
+  // ── Mirror plan → URL hash + localStorage (after restore) ─────
+  useEffect(() => {
+    if (!ready) return;
+    const plan = { origin, dest, fleet };
+    try { history.replaceState(null, '', '#' + encodePlan(plan)); } catch (_) {}
+    savePlanLocal(plan);
+  }, [ready, origin, dest, fleet]);
 
   // ── ⌘K keyboard shortcut ──────────────────────────────────────
   useEffect(() => {
@@ -110,10 +135,14 @@ export default function App() {
     setDest(origin);
   };
 
-  const handleSave = () => {
-    localStorage.setItem('tempuh_plan', JSON.stringify({ origin, dest, fleet }));
-    alert('Plan saved to local storage.');
-  };
+  const handleShare = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }, []);
 
   // ── Loading / error states ─────────────────────────────────────
   if (loading) {
@@ -239,7 +268,7 @@ export default function App() {
         aircraft={aircraft}
         legNm={legNm}
         onPrint={() => window.print()}
-        onSave={handleSave}
+        onShare={handleShare}
       />
 
       {/* Route colour legend (bottom-center) */}
