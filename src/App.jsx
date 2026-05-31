@@ -5,6 +5,7 @@ import LeftDock from './components/LeftDock.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import ComparisonCard from './components/ComparisonCard.jsx';
 import Legend from './components/Legend.jsx';
+import Onboarding from './components/Onboarding.jsx';
 import PrintBrief from './components/PrintBrief.jsx';
 import { loadAirports } from './services/airports.js';
 import { loadAircraft } from './services/aircraft.js';
@@ -38,6 +39,14 @@ export default function App() {
 
   const [palette,   setPalette]   = useState(null); // null | 'from' | 'to' | 'aircraft'
   const [palQuery,  setPalQuery]  = useState('');
+  const [showHints, setShowHints] = useState(() => {
+    try { return !localStorage.getItem('tempuh_onboarded'); } catch (_) { return true; }
+  });
+
+  const dismissHints = useCallback(() => {
+    try { localStorage.setItem('tempuh_onboarded', '1'); } catch (_) {}
+    setShowHints(false);
+  }, []);
 
   // ── Load airports + aircraft catalog in parallel ───────────────
   useEffect(() => {
@@ -202,6 +211,11 @@ export default function App() {
           title="Print briefing"
           onClick={() => window.print()}
         >⎙</button>
+        <button
+          className={`ctrl-btn${showHints ? ' active' : ''}`}
+          title="Show tips"
+          onClick={() => setShowHints(v => !v)}
+        >?</button>
       </div>
 
       {/* Left dock */}
@@ -230,6 +244,9 @@ export default function App() {
 
       {/* Route colour legend (bottom-center) */}
       <Legend aircraft={aircraft} focused={focused} onFocus={setFocused} />
+
+      {/* First-run onboarding hints */}
+      {showHints && <Onboarding onDismiss={dismissHints} />}
 
       {/* Command palette */}
       {palette && (
