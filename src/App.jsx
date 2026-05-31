@@ -195,7 +195,7 @@ export default function App() {
       />
 
       {/* Map controls (top-right, below Leaflet zoom) */}
-      <div className="map-controls" style={{ top: 80 }}>
+      <div className="map-controls">
         <button
           className={`ctrl-btn${panelsOpen ? '' : ' active'}`}
           title={panelsOpen ? 'Hide panels — full map' : 'Show panels'}

@@ -34,6 +34,10 @@ export default function TempuhMap({ origin, dest, aircraft, focused, showRanges,
       worldCopyJump: false,
     });
 
+    // Default zoom control sits top-left, under the route dock — move it to
+    // the top-right, above the custom control stack.
+    map.zoomControl.setPosition('topright');
+
     L.tileLayer(TILE_URL, {
       attribution: TILE_ATTR,
       maxZoom: 18,
